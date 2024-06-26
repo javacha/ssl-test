@@ -9,13 +9,18 @@ import (
 	"os"
 )
 
+func help() {
+	fmt.Print("no args!  Must inform URL to test. \n\n\n")
+	fmt.Print("Put server CAs in file myTrustStore.pem. \n\n")
+	return
+}
+
 func main() {
 
 	// Check args
 	args := os.Args
 	if len(args) < 2 {
-		fmt.Println("no args!  Must inform URL to test. \n\n")
-		fmt.Println("Put server CAs in file myTrustStore.pem. \n")
+		help()
 		return
 	}
 	url := args[1]
