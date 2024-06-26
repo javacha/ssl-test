@@ -10,7 +10,7 @@ import (
 )
 
 func help() {
-	fmt.Print("no args!  Must inform URL to test. \n\n\n")
+	fmt.Print("no args!  Must inform https://<server> to test. \n\n\n")
 	fmt.Print("Put server CAs in file myTrustStore.pem. \n\n")
 	return
 }
@@ -54,7 +54,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("\nConnected  OK!\n")
+	fmt.Print("\nConnected  OK!\n\n")
 
 	// Read the response body
 	body, err := ioutil.ReadAll(resp.Body)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 )
 
 func help() {
@@ -13,6 +14,15 @@ func help() {
 	return
 }
 
+func checkExpired(from time.Time, until time.Time) bool {
+	actualDate := time.Now()
+	expired := true
+	if actualDate.After(from) && actualDate.Before(until) {
+		expired = false
+	}
+	return expired
+
+}
 func main() {
 	// Replace with your server's address and port
 	//serverAddr := "aso-dev-ar.work-02.platform.bbva.com:443"
@@ -58,6 +68,8 @@ func main() {
 		fmt.Printf("Issuer: %s\n", cert.Issuer)
 		fmt.Printf("NotBefore: %s\n", cert.NotBefore)
 		fmt.Printf("NotAfter: %s\n", cert.NotAfter)
+		isValid := checkExpired(cert.NotBefore, cert.NotAfter)
+		fmt.Printf("Expired: %v\n", isValid)
 		fmt.Printf("DNSNames: %v\n", cert.DNSNames)
 		//fmt.Printf("EmailAddresses: %v\n", cert.EmailAddresses)
 		//fmt.Printf("IPAddresses: %v\n", cert.IPAddresses)
@@ -65,6 +77,7 @@ func main() {
 		//fmt.Printf("IsCA: %v\n", cert.IsCA)
 		//fmt.Printf("KeyUsage: %v\n", cert.KeyUsage)
 		//fmt.Printf("Extensions: %v\n", cert.Extensions)
+
 		fmt.Println("---------------------------------------------------")
 		certId++
 	}
