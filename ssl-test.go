@@ -14,6 +14,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gookit/color"
 )
 
 func help() {
@@ -75,9 +77,11 @@ func listServerCerts(serverAddr string) {
 	certs := getServerCerts(serverAddr)
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println("  /////////////////////////////////////////////////")
-	fmt.Println("  ///       Listing server certificates         ///")
-	fmt.Println("  /////////////////////////////////////////////////")
+	color.Blueln("  /////////////////////////////////////////////////")
+	color.Bluef("  ///       ")
+	color.White.Printf("Listing server certificates")
+	color.Blueln("         ///")
+	color.Blueln("  /////////////////////////////////////////////////")
 
 	fmt.Println("")
 	certId := 0
@@ -94,10 +98,13 @@ func listCAs(certFile string) {
 
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println("  /////////////////////////////////////////////////")
-	fmt.Println("  ///    Listing custom cacerts certificates    ///")
-	fmt.Println("  /////////////////////////////////////////////////")
-	fmt.Println("")
+	color.Blueln("  /////////////////////////////////////////////////")
+	color.Bluef("  ///    ")
+	color.White.Printf("Listing custom cacerts certificates")
+	color.Blueln("    ///")
+	color.Blueln("  /////////////////////////////////////////////////")
+	//color.Bluef("  --> ")
+	fmt.Printf("  (%s)\n", certFile)
 
 	pemData := loadCacerts(certFile)
 
@@ -165,6 +172,13 @@ func getParams(args []string) (url, cacerts string) {
 	return getServerURL(url), cacerts
 }
 
+func removeURLFromError(error string) string {
+	where := strings.Index(error, ":")
+	error = error[where+1:]
+	where = strings.Index(error, ":")
+	return error[where+1:]
+}
+
 // Carga el custom cacerts
 func loadCacerts(certFile string) []byte {
 	// Load your cacerts file
@@ -180,33 +194,24 @@ func loadCacerts(certFile string) []byte {
 
 // Carga el custom cacerts
 func createCertPool(certFile string) *x509.CertPool {
-	fmt.Println(" ")
-	fmt.Println(" ")
 	if len(certFile) == 0 {
-		fmt.Println("  (using system CAs)")
 		return nil
 	}
-
 	cert := loadCacerts(certFile)
 
 	caCertPool := x509.NewCertPool()
 	if len(cert) > 0 {
 		// Create a certificate pool and add your cacerts file
 		caCertPool.AppendCertsFromPEM(cert)
-		fmt.Printf("  (using custom truststore %s) \n", certFile)
 	}
 	return caCertPool
 }
 
-func removeURLFromError(error string) string {
-	where := strings.Index(error, ":")
-	error = error[where+1:]
-	where = strings.Index(error, ":")
-	return error[where+1:]
-}
+func sslConnect(url string, cacerts string) {
 
-func sslConnect(url string, caCertPool *x509.CertPool) {
-	// Create a custom HTTP client with your certificate
+	caCertPool := createCertPool(cacerts)
+
+	// Create a custom HTTP client with your certificat
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -215,10 +220,20 @@ func sslConnect(url string, caCertPool *x509.CertPool) {
 		},
 	}
 
-	fmt.Println("  /////////////////////////////////////////////////")
-	fmt.Println("  ///          Testing SSL connection           ///")
-	fmt.Println("  /////////////////////////////////////////////////")
-	fmt.Println("")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	color.Blueln("  /////////////////////////////////////////////////")
+	color.Bluef("  ///         ")
+	color.White.Printf("Testing SSL connection")
+	color.Blueln("            ///")
+	color.Blueln("  /////////////////////////////////////////////////")
+	if caCertPool == nil {
+		fmt.Println("  (using system CAs)")
+	}
+	//else {
+	//	fmt.Printf("  (using custom truststore %s) \n", cacerts)
+	//}
+
 	fmt.Println("")
 
 	connectOK := true
@@ -230,17 +245,19 @@ func sslConnect(url string, caCertPool *x509.CertPool) {
 	if connectOK {
 		defer resp.Body.Close()
 
-		fmt.Println("  Connected  OK!")
-		body, err := io.ReadAll(resp.Body) // Read the response body
+		green := color.FgGreen.Render
+		fmt.Printf("  %s \n", green("Connected  OK!"))
+		_, err := io.ReadAll(resp.Body) // Read the response body
 		if err != nil {
 			fmt.Println("Error reading response:", err)
 			return
 		}
-		fmt.Println("  Response from ", url)
-		fmt.Println(" ", resp.Status)
-		fmt.Printf("  %s", body)
+		//fmt.Println("  Response from ", url)
+		//fmt.Println(" ", resp.Status)
+		//fmt.Printf("  %s", body)
 	} else {
-		fmt.Println("  Connection failed!")
+		fmt.Print("  ")
+		color.Error.Println("Connection failed!")
 		fmt.Printf("  Message %s\n", removeURLFromError(err.Error()))
 	}
 	fmt.Println("")
@@ -256,11 +273,9 @@ func main() {
 
 	url, cacerts = getParams(os.Args)
 
-	caCertPool := createCertPool(cacerts)
-
-	sslConnect(url, caCertPool)
-
 	listServerCerts(url)
 
 	listCAs(cacerts)
+
+	sslConnect(url, cacerts)
 }
