@@ -3,10 +3,12 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -15,16 +17,16 @@ import (
 )
 
 func help() {
-	fmt.Print("")
-	fmt.Print("ssl-test | List server certificates and test SSL connection. ")
-	fmt.Print("")
-	fmt.Print("Usage:")
-	fmt.Print("  ssl-test <url> [cacerts]")
-	fmt.Print("")
-	fmt.Print("      url: server url")
-	fmt.Print("  cacerts: optional custom CAcerts")
-	fmt.Print("")
-	fmt.Print("")
+	fmt.Println("")
+	fmt.Println("ssl-test | List server certificates and test SSL connection. ")
+	fmt.Println("")
+	fmt.Println("Usage:")
+	fmt.Println("  ssl-test <url> [cacerts]")
+	fmt.Println("")
+	fmt.Println("      url: server url")
+	fmt.Println("  cacerts: optional custom CAcerts")
+	fmt.Println("")
+	fmt.Println("")
 }
 
 // obtiene el server name desde el argumento de commandLine
@@ -84,18 +86,42 @@ func listServerCerts(serverAddr string) {
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>")
 }
 
-func listCAs(caCertPool *x509.CertPool) {
+func listCAs(certFile string) {
+	if len(certFile) == 0 {
+		return
+	}
+
 	fmt.Println("")
 	fmt.Println("")
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println(">>> Listing server certificates..... ")
+	fmt.Println(">>> Listing custom cacerts certificates.... ")
 	fmt.Println(">")
+
+	pemData := loadCacerts(certFile)
+
+	// Decode PEM data block by block
+	var pemBlocks []*pem.Block
+	for {
+		block, rest := pem.Decode(pemData)
+		if block == nil {
+			break
+		}
+		pemBlocks = append(pemBlocks, block)
+		pemData = rest
+	}
+
+	// Parse each PEM block as a certificate
 	certId := 0
-	for _, subj := range caCertPool.Subjects() {
-		cert, _ := x509.ParseCertificate(subj)
+	for _, block := range pemBlocks {
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Printf("failed to parse certificate: %v", err)
+			continue
+		}
 		printCertificate(cert, certId)
 		certId++
 	}
+
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>")
 }
 
@@ -103,7 +129,7 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 	// Connect to the server
 	conn, err := net.Dial("tcp", serverAddr+":443")
 	if err != nil {
-		fmt.Println("Failed to connect to server: %v", err)
+		fmt.Printf("Failed to connect to server: %v\n", err)
 	}
 	defer conn.Close()
 
@@ -118,7 +144,7 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 
 	// Handshake with the server
 	if err := tlsConn.Handshake(); err != nil {
-		fmt.Println("TLS handshake failed: %v", err)
+		fmt.Printf("TLS handshake failed: %v\n", err)
 		os.Exit(-2)
 	}
 
@@ -139,14 +165,7 @@ func getParams(args []string) (url, cacerts string) {
 }
 
 // Carga el custom cacerts
-func loadCacerts(certFile string) *x509.CertPool {
-	fmt.Println(" ")
-	fmt.Println(" ")
-	if len(certFile) == 0 {
-		fmt.Println(">>> Using system CAs")
-		return nil
-	}
-
+func loadCacerts(certFile string) []byte {
 	// Load your cacerts file
 	cert, err := ioutil.ReadFile(certFile)
 	if err != nil {
@@ -155,6 +174,19 @@ func loadCacerts(certFile string) *x509.CertPool {
 			os.Exit(-2)
 		}
 	}
+	return cert
+}
+
+// Carga el custom cacerts
+func createCertPool(certFile string) *x509.CertPool {
+	fmt.Println(" ")
+	fmt.Println(" ")
+	if len(certFile) == 0 {
+		fmt.Println(">>> Using system CAs")
+		return nil
+	}
+
+	cert := loadCacerts(certFile)
 
 	caCertPool := x509.NewCertPool()
 	if len(cert) > 0 {
@@ -205,7 +237,7 @@ func sslConnect(url string, caCertPool *x509.CertPool) {
 			fmt.Println("Error reading response:", err)
 			return
 		}
-		fmt.Println(">   Response from %s", url)
+		fmt.Println(">   Response from ", url)
 		fmt.Println(">  ", resp.Status)
 		fmt.Printf(">   %s", body)
 	} else {
@@ -226,11 +258,11 @@ func main() {
 
 	url, cacerts = getParams(os.Args)
 
-	caCertPool := loadCacerts(cacerts)
+	caCertPool := createCertPool(cacerts)
 
 	sslConnect(url, caCertPool)
 
 	listServerCerts(url)
 
-	//listCAs(caCertPool)
+	listCAs(cacerts)
 }

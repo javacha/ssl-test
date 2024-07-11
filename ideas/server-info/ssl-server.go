@@ -21,8 +21,8 @@ func checkExpired(from time.Time, until time.Time) bool {
 		expired = false
 	}
 	return expired
-
 }
+
 func main() {
 	// Replace with your server's address and port
 	//serverAddr := "aso-dev-ar.work-02.platform.bbva.com:443"
