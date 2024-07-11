@@ -53,7 +53,7 @@ func checkExpired(from time.Time, until time.Time) bool {
 	return expired
 }
 
-func printCertificate(cert *x509.Certificate, idx int) {
+func printCertificateInfo(cert *x509.Certificate, idx int) {
 	fmt.Println("   ")
 	fmt.Printf("  certificate %d\n", idx)
 	fmt.Printf("  Subject: %s\n", cert.Subject)
@@ -86,7 +86,7 @@ func listServerCerts(serverAddr string) {
 	fmt.Println("")
 	certId := 0
 	for _, cert := range certs {
-		printCertificate(cert, certId)
+		printCertificateInfo(cert, certId)
 		certId++
 	}
 }
@@ -103,8 +103,8 @@ func listCAs(certFile string) {
 	color.White.Printf("Listing custom cacerts certificates")
 	color.Blueln("    ///")
 	color.Blueln("  /////////////////////////////////////////////////")
-	//color.Bluef("  --> ")
 	fmt.Printf("  (%s)\n", certFile)
+	fmt.Println("")
 
 	pemData := loadCacerts(certFile)
 
@@ -127,7 +127,7 @@ func listCAs(certFile string) {
 			log.Printf("failed to parse certificate: %v", err)
 			continue
 		}
-		printCertificate(cert, certId)
+		printCertificateInfo(cert, certId)
 		certId++
 	}
 
