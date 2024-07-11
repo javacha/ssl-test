@@ -52,15 +52,15 @@ func checkExpired(from time.Time, until time.Time) bool {
 }
 
 func printCertificate(cert *x509.Certificate, idx int) {
-	fmt.Println(">   ")
-	fmt.Printf(">   certificate %d\n", idx)
-	fmt.Printf(">   Subject: %s\n", cert.Subject)
-	fmt.Printf(">   Issuer: %s\n", cert.Issuer)
-	fmt.Printf(">   NotBefore: %s\n", cert.NotBefore)
-	fmt.Printf(">   NotAfter: %s\n", cert.NotAfter)
+	fmt.Println("   ")
+	fmt.Printf("  certificate %d\n", idx)
+	fmt.Printf("  Subject: %s\n", cert.Subject)
+	fmt.Printf("  Issuer: %s\n", cert.Issuer)
+	fmt.Printf("  NotBefore: %s\n", cert.NotBefore)
+	fmt.Printf("  NotAfter: %s\n", cert.NotAfter)
 	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
-	fmt.Printf(">   Expired: %v\n", isValid)
-	fmt.Printf(">   DNSNames: %v\n", cert.DNSNames)
+	fmt.Printf("  Expired: %v\n", isValid)
+	fmt.Printf("  DNSNames: %v\n", cert.DNSNames)
 	//fmt.Printf("EmailAddresses: %v\n", cert.EmailAddresses)
 	//fmt.Printf("IPAddresses: %v\n", cert.IPAddresses)
 	//fmt.Printf("URIs: %v\n", cert.URIs)
@@ -68,22 +68,23 @@ func printCertificate(cert *x509.Certificate, idx int) {
 	//fmt.Printf("KeyUsage: %v\n", cert.KeyUsage)
 	//fmt.Printf("Extensions: %v\n", cert.Extensions)
 
-	//fmt.Println("> -----------------------------")
+	//fmt.Println(" -----------------------------")
 }
 
 func listServerCerts(serverAddr string) {
 	certs := getServerCerts(serverAddr)
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println(">>> Listing server certificates..... ")
-	fmt.Println(">")
+	fmt.Println("  /////////////////////////////////////////////////")
+	fmt.Println("  ///       Listing server certificates         ///")
+	fmt.Println("  /////////////////////////////////////////////////")
+
+	fmt.Println("")
 	certId := 0
 	for _, cert := range certs {
 		printCertificate(cert, certId)
 		certId++
 	}
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>")
 }
 
 func listCAs(certFile string) {
@@ -93,9 +94,10 @@ func listCAs(certFile string) {
 
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println(">>> Listing custom cacerts certificates.... ")
-	fmt.Println(">")
+	fmt.Println("  /////////////////////////////////////////////////")
+	fmt.Println("  ///    Listing custom cacerts certificates    ///")
+	fmt.Println("  /////////////////////////////////////////////////")
+	fmt.Println("")
 
 	pemData := loadCacerts(certFile)
 
@@ -122,7 +124,6 @@ func listCAs(certFile string) {
 		certId++
 	}
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>")
 }
 
 func getServerCerts(serverAddr string) []*x509.Certificate {
@@ -182,7 +183,7 @@ func createCertPool(certFile string) *x509.CertPool {
 	fmt.Println(" ")
 	fmt.Println(" ")
 	if len(certFile) == 0 {
-		fmt.Println(">>> Using system CAs")
+		fmt.Println("  (using system CAs)")
 		return nil
 	}
 
@@ -192,9 +193,8 @@ func createCertPool(certFile string) *x509.CertPool {
 	if len(cert) > 0 {
 		// Create a certificate pool and add your cacerts file
 		caCertPool.AppendCertsFromPEM(cert)
-		fmt.Println(">>> Using custom truststore ", certFile)
+		fmt.Printf("  (using custom truststore %s) \n", certFile)
 	}
-	fmt.Println("")
 	return caCertPool
 }
 
@@ -215,12 +215,11 @@ func sslConnect(url string, caCertPool *x509.CertPool) {
 		},
 	}
 
-	//fmt.Println("")
+	fmt.Println("  /////////////////////////////////////////////////")
+	fmt.Println("  ///          Testing SSL connection           ///")
+	fmt.Println("  /////////////////////////////////////////////////")
 	fmt.Println("")
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println(">>> Testing SSL connection..... ")
-	fmt.Println(">")
-	fmt.Println(">")
+	fmt.Println("")
 
 	connectOK := true
 	resp, err := client.Get("https://" + url)
@@ -231,21 +230,20 @@ func sslConnect(url string, caCertPool *x509.CertPool) {
 	if connectOK {
 		defer resp.Body.Close()
 
-		fmt.Println(">   Connected  OK!")
+		fmt.Println("  Connected  OK!")
 		body, err := io.ReadAll(resp.Body) // Read the response body
 		if err != nil {
 			fmt.Println("Error reading response:", err)
 			return
 		}
-		fmt.Println(">   Response from ", url)
-		fmt.Println(">  ", resp.Status)
-		fmt.Printf(">   %s", body)
+		fmt.Println("  Response from ", url)
+		fmt.Println(" ", resp.Status)
+		fmt.Printf("  %s", body)
 	} else {
-		fmt.Println(">   Connection failed!")
-		fmt.Printf(">   Message %s\n", removeURLFromError(err.Error()))
+		fmt.Println("  Connection failed!")
+		fmt.Printf("  Message %s\n", removeURLFromError(err.Error()))
 	}
-	fmt.Println(">")
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>")
+	fmt.Println("")
 
 }
 
