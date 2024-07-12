@@ -74,6 +74,8 @@ func printCertificateInfo(cert *x509.Certificate, idx int) {
 }
 
 func listServerCerts(serverAddr string) {
+	pemOutputFileName := serverAddr + "-CERTS.pem"
+
 	certs := getServerCerts(serverAddr)
 	fmt.Println("")
 	fmt.Println("")
@@ -82,12 +84,21 @@ func listServerCerts(serverAddr string) {
 	color.White.Printf("Listing server certificates")
 	color.Blueln("         ///")
 	color.Blueln("  /////////////////////////////////////////////////")
-
 	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("  writing certs to %s file\n", pemOutputFileName)
+
 	certId := 0
+	pemData := []byte{}
 	for _, cert := range certs {
 		printCertificateInfo(cert, certId)
+		pemData = append(pemData, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
+		pemData = append(pemData, []byte("\n")...)
 		certId++
+	}
+	err := ioutil.WriteFile(pemOutputFileName, pemData, 0644)
+	if err != nil {
+		log.Fatalf("failed to save PEM data to file: %v", err)
 	}
 }
 
@@ -103,8 +114,9 @@ func listCAs(certFile string) {
 	color.White.Printf("Listing custom cacerts certificates")
 	color.Blueln("    ///")
 	color.Blueln("  /////////////////////////////////////////////////")
-	fmt.Printf("  (%s)\n", certFile)
 	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("  file %s\n", certFile)
 
 	pemData := loadCacerts(certFile)
 
@@ -229,10 +241,9 @@ func sslConnect(url string, cacerts string) {
 	color.Blueln("  /////////////////////////////////////////////////")
 	if caCertPool == nil {
 		fmt.Println("  (using system CAs)")
+	} else {
+		fmt.Println("  (using custom truststore)")
 	}
-	//else {
-	//	fmt.Printf("  (using custom truststore %s) \n", cacerts)
-	//}
 
 	fmt.Println("")
 
