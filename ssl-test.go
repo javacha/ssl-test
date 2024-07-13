@@ -55,20 +55,21 @@ func checkExpired(from time.Time, until time.Time) bool {
 
 func printCertificateInfo(cert *x509.Certificate, idx int) {
 	fmt.Println("   ")
-	fmt.Printf("  certificate %d\n", idx)
-	fmt.Printf("  Subject: %s\n", cert.Subject)
-	fmt.Printf("  Issuer: %s\n", cert.Issuer)
-	fmt.Printf("  NotBefore: %s\n", cert.NotBefore)
-	fmt.Printf("  NotAfter: %s\n", cert.NotAfter)
+	fmt.Printf("  certificate   %d\n", idx)
+	fmt.Printf("  Subject       %s\n", cert.Subject)
+	fmt.Printf("  Issuer        %s\n", cert.Issuer)
+	fmt.Printf("  Serial#       %s\n", cert.SerialNumber)
+	fmt.Printf("  NotBefore     %s\n", cert.NotBefore)
+	fmt.Printf("  NotAfter      %s\n", cert.NotAfter)
 	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
-	fmt.Printf("  Expired: %v\n", isValid)
-	fmt.Printf("  DNSNames: %v\n", cert.DNSNames)
-	//fmt.Printf("EmailAddresses: %v\n", cert.EmailAddresses)
-	//fmt.Printf("IPAddresses: %v\n", cert.IPAddresses)
-	//fmt.Printf("URIs: %v\n", cert.URIs)
-	//fmt.Printf("IsCA: %v\n", cert.IsCA)
-	//fmt.Printf("KeyUsage: %v\n", cert.KeyUsage)
-	//fmt.Printf("Extensions: %v\n", cert.Extensions)
+	fmt.Printf("  Expired       %v\n", isValid)
+	fmt.Printf("  DNSNames      %v\n", cert.DNSNames)
+	//fmt.Printf("EmailAddresses %v\n", cert.EmailAddresses)
+	//fmt.Printf("IPAddresses    %v\n", cert.IPAddresses)
+	//fmt.Printf("URIs           %v\n", cert.URIs)
+	//fmt.Printf("IsCA           %v\n", cert.IsCA)
+	//fmt.Printf("KeyUsage       %v\n", cert.KeyUsage)
+	//fmt.Printf("Extensions     %v\n", cert.Extensions)
 
 	//fmt.Println(" -----------------------------")
 }
@@ -76,7 +77,6 @@ func printCertificateInfo(cert *x509.Certificate, idx int) {
 func listServerCerts(serverAddr string) {
 	pemOutputFileName := serverAddr + "-CERTS.pem"
 
-	certs := getServerCerts(serverAddr)
 	fmt.Println("")
 	fmt.Println("")
 	color.Blueln("  /////////////////////////////////////////////////")
@@ -86,8 +86,10 @@ func listServerCerts(serverAddr string) {
 	color.Blueln("  /////////////////////////////////////////////////")
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Printf("  writing certs to %s file\n", pemOutputFileName)
+	fmt.Printf("  writing server certs to %s file\n", pemOutputFileName)
 
+
+	certs := getServerCerts(serverAddr)
 	certId := 0
 	pemData := []byte{}
 	for _, cert := range certs {
@@ -156,7 +158,7 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 	// Configure TLS
 	config := &tls.Config{
 		ServerName:         serverAddr,
-		InsecureSkipVerify: false,
+		InsecureSkipVerify: true,
 	}
 
 	tlsConn := tls.Client(conn, config)
@@ -165,7 +167,7 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 	// Handshake with the server
 	if err := tlsConn.Handshake(); err != nil {
 		fmt.Printf("TLS handshake failed: %v\n", err)
-		os.Exit(-2)
+		//os.Exit(-2)
 	}
 
 	// Get the server's certificates
