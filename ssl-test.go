@@ -4,10 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -75,8 +73,6 @@ func printCertificateInfo(cert *x509.Certificate, idx int) {
 }
 
 func listServerCerts(serverAddr string) {
-	pemOutputFileName := serverAddr + "-CERTS.pem"
-
 	fmt.Println("")
 	fmt.Println("")
 	color.Blueln("  /////////////////////////////////////////////////")
@@ -86,28 +82,34 @@ func listServerCerts(serverAddr string) {
 	color.Blueln("  /////////////////////////////////////////////////")
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Printf("  writing server certs to %s file\n", pemOutputFileName)
-
 
 	certs := getServerCerts(serverAddr)
-	certId := 0
-	pemData := []byte{}
-	for _, cert := range certs {
-		printCertificateInfo(cert, certId)
-		pemData = append(pemData, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
-		pemData = append(pemData, []byte("\n")...)
-		certId++
-	}
-	err := ioutil.WriteFile(pemOutputFileName, pemData, 0644)
-	if err != nil {
-		log.Fatalf("failed to save PEM data to file: %v", err)
+
+	if certs != nil {
+		pemOutputFileName := serverAddr + "-CERTS.pem"
+		fmt.Printf("  => Writing server certs to %s file\n", pemOutputFileName)
+		certId := 0
+		pemData := []byte{}
+		for _, cert := range certs {
+			printCertificateInfo(cert, certId)
+			pemData = append(pemData, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
+			pemData = append(pemData, []byte("\n")...)
+			certId++
+		}
+		err := os.WriteFile(pemOutputFileName, pemData, 0644)
+		if err != nil {
+			log.Fatalf("failed to save PEM data to file: %v", err)
+		}
 	}
 }
 
+// Lista los certs del custom cacert
 func listCAs(certFile string) {
 	if len(certFile) == 0 {
 		return
 	}
+
+	pemData, err := loadCacerts(certFile)
 
 	fmt.Println("")
 	fmt.Println("")
@@ -118,31 +120,34 @@ func listCAs(certFile string) {
 	color.Blueln("  /////////////////////////////////////////////////")
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Printf("  file %s\n", certFile)
 
-	pemData := loadCacerts(certFile)
+	if pemData != nil {
+		fmt.Printf("  file %s\n", certFile)
 
-	// Decode PEM data block by block
-	var pemBlocks []*pem.Block
-	for {
-		block, rest := pem.Decode(pemData)
-		if block == nil {
-			break
+		// Decode PEM data block by block
+		var pemBlocks []*pem.Block
+		for {
+			block, rest := pem.Decode(pemData)
+			if block == nil {
+				break
+			}
+			pemBlocks = append(pemBlocks, block)
+			pemData = rest
 		}
-		pemBlocks = append(pemBlocks, block)
-		pemData = rest
-	}
 
-	// Parse each PEM block as a certificate
-	certId := 0
-	for _, block := range pemBlocks {
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Printf("failed to parse certificate: %v", err)
-			continue
+		// Parse each PEM block as a certificate
+		certId := 0
+		for _, block := range pemBlocks {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				log.Printf("failed to parse certificate: %v", err)
+				continue
+			}
+			printCertificateInfo(cert, certId)
+			certId++
 		}
-		printCertificateInfo(cert, certId)
-		certId++
+	} else {
+		fmt.Println("  Error reading custom cacerts file: ", err)
 	}
 
 }
@@ -151,7 +156,8 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 	// Connect to the server
 	conn, err := net.Dial("tcp", serverAddr+":443")
 	if err != nil {
-		fmt.Printf("Failed to connect to server: %v\n", err)
+		fmt.Printf("Failed to connect to server => %v\n", err)
+		return nil
 	}
 	defer conn.Close()
 
@@ -166,8 +172,8 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 
 	// Handshake with the server
 	if err := tlsConn.Handshake(); err != nil {
-		fmt.Printf("TLS handshake failed: %v\n", err)
-		//os.Exit(-2)
+		fmt.Printf("TLS handshake failed => %v\n", err)
+		return nil
 	}
 
 	// Get the server's certificates
@@ -193,32 +199,32 @@ func removeURLFromError(error string) string {
 	return error[where+1:]
 }
 
-// Carga el custom cacerts
-func loadCacerts(certFile string) []byte {
+// Lee el archivo custom cacerts
+func loadCacerts(certFile string) ([]byte, error) {
 	// Load your cacerts file
-	cert, err := ioutil.ReadFile(certFile)
+	cert, err := os.ReadFile(certFile)
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			fmt.Println("Error reading file:", err)
-			os.Exit(-2)
-		}
+		return nil, err
 	}
-	return cert
+	return cert, nil
 }
 
-// Carga el custom cacerts
+// Carga un CertPool a partir de lista de certs
 func createCertPool(certFile string) *x509.CertPool {
 	if len(certFile) == 0 {
 		return nil
 	}
-	cert := loadCacerts(certFile)
-
-	caCertPool := x509.NewCertPool()
-	if len(cert) > 0 {
-		// Create a certificate pool and add your cacerts file
-		caCertPool.AppendCertsFromPEM(cert)
+	cert, _ := loadCacerts(certFile)
+	if cert == nil {
+		return nil
+	} else {
+		caCertPool := x509.NewCertPool()
+		if len(cert) > 0 {
+			// Create a certificate pool and add your cacerts file
+			caCertPool.AppendCertsFromPEM(cert)
+		}
+		return caCertPool
 	}
-	return caCertPool
 }
 
 func sslConnect(url string, cacerts string) {
@@ -233,6 +239,7 @@ func sslConnect(url string, cacerts string) {
 			},
 		},
 	}
+	//Proxy: http.ProxyURL(proxyURL),
 
 	fmt.Println(" ")
 	fmt.Println(" ")
@@ -265,9 +272,8 @@ func sslConnect(url string, cacerts string) {
 			fmt.Println("Error reading response:", err)
 			return
 		}
-		//fmt.Println("  Response from ", url)
-		//fmt.Println(" ", resp.Status)
-		//fmt.Printf("  %s", body)
+		fmt.Println("")
+
 	} else {
 		fmt.Print("  ")
 		color.Error.Println("Connection failed!")
