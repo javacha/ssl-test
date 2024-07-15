@@ -8,7 +8,7 @@ func Test_getServerURL(t *testing.T) {
 		"https://www.javacha.com",
 		"www.javacha.com",
 		"www.javacha.com/index",
-		"https://www.javacha.com/files/12",
+		"https://www.javacha.com/files:443/12",
 	}
 
 	for _, url := range testURLs {
@@ -19,4 +19,19 @@ func Test_getServerURL(t *testing.T) {
 		}
 	}
 
+}
+
+func Test_loadCacerts(t *testing.T) {
+	pemFile := "testing/ok.pem"
+	result := loadCacerts(pemFile)
+	//expected := "hola"
+	if result == nil {
+		t.Errorf("loadCacerts(%s) => nil, expected []byte", pemFile)
+	}
+
+	pemFile = "testing/DO_NOT_EXISTs.pem"
+	result = loadCacerts(pemFile)
+	if result != nil {
+		t.Errorf("loadCacerts(%s) => []byte, expected nil", pemFile)
+	}
 }
