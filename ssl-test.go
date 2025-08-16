@@ -4,11 +4,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -42,6 +44,13 @@ func getServerURL(baseurl string) string {
 	return baseurl
 }
 
+// obtiene el proxy desde el argumento de commandLine
+//func getProxyURL(baseurl string) string {
+//proxyURL := flag.String("proxy", "", "Proxy URL (e.g., http://proxy.example.com:8080)")
+
+//return *proxyURL
+//}
+
 func checkExpired(from time.Time, until time.Time) bool {
 	actualDate := time.Now()
 	expired := true
@@ -52,20 +61,20 @@ func checkExpired(from time.Time, until time.Time) bool {
 }
 
 func printCertificateInfo(cert *x509.Certificate, idx int) {
+	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Println("   ")
 	fmt.Printf("  certificate   %d\n", idx)
+	fmt.Printf("  IsCA          %v\n", cert.IsCA)
 	fmt.Printf("  Subject       %s\n", cert.Subject)
 	fmt.Printf("  Issuer        %s\n", cert.Issuer)
 	fmt.Printf("  Serial#       %s\n", cert.SerialNumber)
 	fmt.Printf("  NotBefore     %s\n", cert.NotBefore)
 	fmt.Printf("  NotAfter      %s\n", cert.NotAfter)
-	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Printf("  Expired       %v\n", isValid)
 	fmt.Printf("  DNSNames      %v\n", cert.DNSNames)
 	//fmt.Printf("EmailAddresses %v\n", cert.EmailAddresses)
 	//fmt.Printf("IPAddresses    %v\n", cert.IPAddresses)
 	//fmt.Printf("URIs           %v\n", cert.URIs)
-	//fmt.Printf("IsCA           %v\n", cert.IsCA)
 	//fmt.Printf("KeyUsage       %v\n", cert.KeyUsage)
 	//fmt.Printf("Extensions     %v\n", cert.Extensions)
 
@@ -180,16 +189,32 @@ func getServerCerts(serverAddr string) []*x509.Certificate {
 	return tlsConn.ConnectionState().PeerCertificates
 }
 
-func getParams(args []string) (url, cacerts string) {
-	if len(args) < 2 {
-		help()
+func getParams(args []string) (url, ts, proxy string) {
+
+	// Definición de flags opcionales
+	flag.String("proxy", "", "Proxy a utilizar (opcional)")
+	flag.String("custom-ts", "", "Ruta a bundle TLS personalizado (opcional)")
+
+	// Parseo de flags
+	flag.Parse()
+
+	// Validar y obtener el parámetro obligatorio (url)
+	if flag.NArg() < 1 {
+		fmt.Println("Error: falta el parámetro obligatorio 'url'")
+		fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n", os.Args[0])
 		os.Exit(1)
 	}
-	url = args[1]
-	if len(args) == 3 {
-		cacerts = args[2]
-	}
-	return getServerURL(url), cacerts
+	url = flag.Arg(0)
+	proxy = flag.Lookup("proxy").Value.String()
+	ts = flag.Lookup("custom-ts").Value.String()
+	//customTLS = args[2]
+
+	// Mostrar valores para verificar
+	fmt.Println("URL               :", url)
+	fmt.Println("Proxy             :", proxy)
+	fmt.Println("Custom TLS Bundle :", ts)
+
+	return getServerURL(url), ts, proxy
 }
 
 func removeURLFromError(error string) string {
@@ -227,13 +252,34 @@ func createCertPool(certFile string) *x509.CertPool {
 	}
 }
 
-func sslConnect(url string, cacerts string) {
+func getProxy(proxy string) func(*http.Request) (*url.URL, error) {
+	// Normalizar proxy si se especificó
+	if proxy == "" {
+		// Usa configuración de entorno si no se pasa proxy
+		return http.ProxyFromEnvironment
+	}
+
+	// Si no tiene esquema, le agregamos http://
+	if !strings.Contains(proxy, "://") {
+		proxy = "http://" + proxy
+	}
+
+	parsedProxy, err := url.Parse(proxy)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: proxy inválido: %v\n", err)
+		os.Exit(2)
+	}
+	return http.ProxyURL(parsedProxy)
+}
+
+func sslConnect(url string, cacerts string, proxy string) {
 
 	caCertPool := createCertPool(cacerts)
 
 	// Create a custom HTTP client with your certificat
 	client := &http.Client{
 		Transport: &http.Transport{
+			Proxy: getProxy(proxy),
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
 			},
@@ -288,13 +334,16 @@ func main() {
 	var (
 		url     string
 		cacerts string
+		proxy   string
 	)
 
-	url, cacerts = getParams(os.Args)
+	url, cacerts, proxy = getParams(os.Args)
+
+	fmt.Printf(proxy)
 
 	listServerCerts(url)
 
 	listCAs(cacerts)
 
-	sslConnect(url, cacerts)
+	sslConnect(url, cacerts, proxy)
 }
