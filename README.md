@@ -17,5 +17,5 @@ Ejemplos:
 
 ssl-test  login.mypurecoud.com  
 ssl-test  aso-dev-ar.work-02.platform.bbva.com   
-ssl-test  --custom-ts mi-bundle-tls.pem  cards.prisma.com
-ssl-test  --proxy  proxycfg:1082  cards.prisma.com
+ssl-test  --custom-ts mi-bundle-tls.pem  cards.prisma.com  
+ssl-test  --proxy  proxycfg:1082  cards.prisma.com  
