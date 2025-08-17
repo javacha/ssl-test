@@ -7,12 +7,15 @@ Programa para rápidamente poder:
 - chequear si podemos establecer conexion SSL a ese sitio, ya sea con las CAs del sistema operativo, o con un almacén de confianza a medida 
 
 
+Soporta el uso de proxy.
+
 ## Uso
 
-ssl-test  \<url-sitio\> [truststore.pem]
+ssl-test  [--custom-ts \<tls-bundle.pem\>] [--proxy \<server:port\>] \<url-sitio\>
 
 Ejemplos:
 
-ssl-test  go.dev  
+ssl-test  login.mypurecoud.com  
 ssl-test  aso-dev-ar.work-02.platform.bbva.com   
-ssl-test 
+ssl-test  --custom-ts mi-bundle-tls.pem  cards.prisma.com
+ssl-test  --proxy  proxycfg:1082  cards.prisma.com
