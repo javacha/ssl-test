@@ -179,15 +179,72 @@ func listCAs(certFile string) {
 
 }
 
+// ProxyFromEnvCustom devuelve la URL del proxy a usar para una request,
+// siguiendo reglas similares a http.ProxyFromEnvironment.
+func ProxyFromEnvCustom(schema string, serverUrl string) (*url.URL, error) {
+	var proxyEnv string
+
+	// 1. Elegir variable según esquema
+	if schema == "https" {
+		proxyEnv = getenvAny("HTTPS_PROXY", "https_proxy")
+	} else if schema == "http" {
+		proxyEnv = getenvAny("HTTP_PROXY", "http_proxy")
+	}
+
+	// 2. Si está vacío → no hay proxy
+	if proxyEnv == "" {
+		return nil, nil
+	}
+
+	// 3. Revisar NO_PROXY
+	noProxy := getenvAny("NO_PROXY", "no_proxy")
+	if hostInNoProxy(serverUrl, noProxy) {
+		return nil, nil
+	}
+
+	// 4. Parsear proxy
+	proxyURL, err := url.Parse(proxyEnv)
+	if err != nil {
+		return nil, err
+	}
+	return proxyURL, nil
+}
+
+// Busca la primera variable de entorno que exista
+func getenvAny(keys ...string) string {
+	for _, k := range keys {
+		if v := os.Getenv(k); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// Verifica si el host está dentro de NO_PROXY
+func hostInNoProxy(host, noProxy string) bool {
+	if noProxy == "" {
+		return false
+	}
+	for _, domain := range strings.Split(noProxy, ",") {
+		domain = strings.TrimSpace(domain)
+		if strings.HasSuffix(host, domain) && len(domain) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 	var conn net.Conn
 	var err error
 
 	var addr = serverAddr + ":443"
 
-	if proxyURL != "" {
+	proxy, _ := ProxyFromEnvCustom("https", serverAddr)
+
+	if proxy.Host != "" {
 		// Proxy CONNECT
-		proxy, _ := url.Parse(proxyURL)
+		//proxy, _ := url.Parse(proxyURL)
 		conn, err = net.DialTimeout("tcp", proxy.Host, 10*time.Second)
 		if err != nil {
 			fmt.Printf("error al conectar al proxy: %s %v", proxyURL, err)
