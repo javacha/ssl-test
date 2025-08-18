@@ -24,10 +24,11 @@ func help() {
 	fmt.Println("ssl-test | List server certificates and test SSL connection. ")
 	fmt.Println("")
 	fmt.Println("Usage:")
-	fmt.Println("  ssl-test <url> [cacerts]")
+	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>]  <url>  \n\n")
 	fmt.Println("")
-	fmt.Println("      url: server url")
-	fmt.Println("  cacerts: optional custom CAcerts")
+	fmt.Println("      proxy: optional proxy server")
+	fmt.Println("  custom-ts: optional custom CA truststore to test connection. If not informed, system truststore is used")
+	fmt.Println("        url: server url")
 	fmt.Println("")
 	fmt.Println("")
 }
@@ -44,13 +45,6 @@ func getServerURL(baseurl string) string {
 	}
 	return baseurl
 }
-
-// obtiene el proxy desde el argumento de commandLine
-//func getProxyURL(baseurl string) string {
-//proxyURL := flag.String("proxy", "", "Proxy URL (e.g., http://proxy.example.com:8080)")
-
-//return *proxyURL
-//}
 
 func checkExpired(from time.Time, until time.Time) bool {
 	actualDate := time.Now()
@@ -224,7 +218,8 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 		// Conexión directa
 		conn, err = net.DialTimeout("tcp", addr, 10*time.Second)
 		if err != nil {
-			fmt.Printf("error al conectar directo: %v", err)
+			fmt.Printf("error al conectar directo: %v \n", err)
+			fmt.Printf("Tip: prueba utilizando un proxy de salida \n")
 			return nil
 		}
 	}
@@ -248,16 +243,17 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 func getParams(args []string) (url, ts, proxy string) {
 
 	// Definición de flags opcionales
-	flag.String("proxy", "", "Proxy a utilizar (opcional)")
-	flag.String("custom-ts", "", "Ruta a bundle TLS personalizado (opcional)")
+	flag.String("proxy", "", "Proxy server (optional) ")
+	flag.String("custom-ts", "", "Path to custom TS bundle (optional)")
 
 	// Parseo de flags
 	flag.Parse()
 
 	// Validar y obtener el parámetro obligatorio (url)
 	if flag.NArg() < 1 {
-		fmt.Println("Error: falta el parámetro obligatorio 'url'")
-		fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n", os.Args[0])
+		help()
+		//fmt.Println("Error: falta el parámetro obligatorio 'url'")
+		//fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n")
 		os.Exit(1)
 	}
 	url = flag.Arg(0)
