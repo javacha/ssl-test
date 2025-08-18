@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -60,7 +61,7 @@ func checkExpired(from time.Time, until time.Time) bool {
 	return expired
 }
 
-func printCertificateInfo(cert *x509.Certificate, idx int) {
+func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
 	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Println("   ")
 	fmt.Printf("  certificate   %d\n", idx)
@@ -81,7 +82,29 @@ func printCertificateInfo(cert *x509.Certificate, idx int) {
 	//fmt.Println(" -----------------------------")
 }
 
-func listServerCerts(serverAddr string) {
+func add(pemData *[]byte, buff string) {
+	*pemData = append(*pemData, []byte(buff)...)
+}
+
+func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serverAddr string, certId int) []byte {
+	//pemData = append(pemData, []byte("\n")...)
+
+	if certId == 0 {
+		add(&pemData, fmt.Sprintf("# Host        : %s \n", serverAddr))
+	}
+	add(&pemData, fmt.Sprintf("# \n"))
+	add(&pemData, fmt.Sprintf("# Subject     : %s \n", cert.Subject))
+	add(&pemData, fmt.Sprintf("# Issuer      : %s \n", cert.Issuer))
+	add(&pemData, fmt.Sprintf("# Vencimiento : %s \n", cert.NotAfter))
+	add(&pemData, fmt.Sprintf("# Serial#     : %s \n", cert.SerialNumber))
+	if !cert.IsCA {
+		add(&pemData, fmt.Sprintf("# DNSNames    : %v\n", cert.DNSNames))
+	}
+	add(&pemData, fmt.Sprintf("# \n"))
+	return pemData
+}
+
+func listServerCerts(serverAddr string, proxyURL string) {
 	fmt.Println("")
 	fmt.Println("")
 	color.Blueln("  /////////////////////////////////////////////////")
@@ -92,7 +115,7 @@ func listServerCerts(serverAddr string) {
 	fmt.Println("")
 	fmt.Println("")
 
-	certs := getServerCerts(serverAddr)
+	certs := getServerCerts(serverAddr, proxyURL)
 
 	if certs != nil {
 		pemOutputFileName := serverAddr + "-CERTS.pem"
@@ -100,9 +123,10 @@ func listServerCerts(serverAddr string) {
 		certId := 0
 		pemData := []byte{}
 		for _, cert := range certs {
-			printCertificateInfo(cert, certId)
+			printCertificateInfoInScreen(cert, certId)
+			pemData = printCertificateInfoForPemFile(cert, pemData, serverAddr, certId)
 			pemData = append(pemData, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
-			pemData = append(pemData, []byte("\n")...)
+			//pemData = append(pemData, []byte("\n")...)
 			certId++
 		}
 		err := os.WriteFile(pemOutputFileName, pemData, 0644)
@@ -152,7 +176,7 @@ func listCAs(certFile string) {
 				log.Printf("failed to parse certificate: %v", err)
 				continue
 			}
-			printCertificateInfo(cert, certId)
+			printCertificateInfoInScreen(cert, certId)
 			certId++
 		}
 	} else {
@@ -161,29 +185,61 @@ func listCAs(certFile string) {
 
 }
 
-func getServerCerts(serverAddr string) []*x509.Certificate {
-	// Connect to the server
-	conn, err := net.Dial("tcp", serverAddr+":443")
-	if err != nil {
-		fmt.Printf("Failed to connect to server => %v\n", err)
-		return nil
-	}
-	defer conn.Close()
+func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
+	var conn net.Conn
+	var err error
 
-	// Configure TLS
-	config := &tls.Config{
-		ServerName:         serverAddr,
+	var addr = serverAddr + ":443"
+
+	if proxyURL != "" {
+		// Proxy CONNECT
+		proxy, _ := url.Parse(proxyURL)
+		conn, err = net.DialTimeout("tcp", proxy.Host, 10*time.Second)
+		if err != nil {
+			fmt.Printf("error al conectar al proxy: %s %v", proxyURL, err)
+			return nil
+		}
+
+		// Mandamos el CONNECT al proxy
+		req := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", addr, addr)
+		_, err = conn.Write([]byte(req))
+		if err != nil {
+			fmt.Printf("error enviando CONNECT: %v", err)
+			return nil
+		}
+
+		// Leemos respuesta del proxy
+		br := bufio.NewReader(conn)
+		resp, err := br.ReadString('\n')
+		if err != nil {
+			fmt.Printf("error leyendo respuesta del proxy: %v", err)
+			return nil
+		}
+		if !strings.Contains(resp, "200") {
+			fmt.Printf("proxy no permitió CONNECT, resp: %s", resp)
+			return nil
+		}
+		// Nota: se debería consumir todos los headers hasta "\r\n", pero para demo alcanza
+	} else {
+		// Conexión directa
+		conn, err = net.DialTimeout("tcp", addr, 10*time.Second)
+		if err != nil {
+			fmt.Printf("error al conectar directo: %v", err)
+			return nil
+		}
+	}
+
+	// Handshake TLS (InsecureSkipVerify: true porque vamos a validar manualmente)
+	tlsConn := tls.Client(conn, &tls.Config{
 		InsecureSkipVerify: true,
-	}
-
-	tlsConn := tls.Client(conn, config)
-	defer tlsConn.Close()
-
-	// Handshake with the server
-	if err := tlsConn.Handshake(); err != nil {
-		fmt.Printf("TLS handshake failed => %v\n", err)
+		ServerName:         strings.Split(addr, ":")[0], // SNI
+	})
+	err = tlsConn.Handshake()
+	if err != nil {
+		fmt.Printf("error en handshake TLS: %v", err)
 		return nil
 	}
+	defer tlsConn.Close()
 
 	// Get the server's certificates
 	return tlsConn.ConnectionState().PeerCertificates
@@ -341,7 +397,7 @@ func main() {
 
 	fmt.Printf(proxy)
 
-	listServerCerts(url)
+	listServerCerts(url, proxy)
 
 	listCAs(cacerts)
 
