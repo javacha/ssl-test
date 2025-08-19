@@ -18,7 +18,10 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}/ssl-test.go",
-            "args": ["--proxy", "http://proxycfg:1082", "login.mypurecloud.com"]
+            "args": ["--proxy", "http://proxycfg:1082", "login.mypurecloud.com"],
+            "env": {
+                "HTTPS_PROXY": "ttp://pzenarg.zscalertwo.net:80"
+            }
         },
         {
             "name": "ssl-test cacert",

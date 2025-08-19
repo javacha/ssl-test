@@ -181,29 +181,35 @@ func listCAs(certFile string) {
 
 // ProxyFromEnvCustom devuelve la URL del proxy a usar para una request,
 // siguiendo reglas similares a http.ProxyFromEnvironment.
-func ProxyFromEnvCustom(schema string, serverUrl string) (*url.URL, error) {
-	var proxyEnv string
+func ProxyFromEnvCustom(schema string, serverUrl string, proxyCMD string) (*url.URL, error) {
+	var proxyEnv, proxy string
 
-	// 1. Elegir variable según esquema
-	if schema == "https" {
-		proxyEnv = getenvAny("HTTPS_PROXY", "https_proxy")
-	} else if schema == "http" {
-		proxyEnv = getenvAny("HTTP_PROXY", "http_proxy")
-	}
+	if proxyCMD == "" {
 
-	// 2. Si está vacío → no hay proxy
-	if proxyEnv == "" {
-		return nil, nil
-	}
+		// 1. Elegir variable según esquema
+		if schema == "https" {
+			proxyEnv = getenvAny("HTTPS_PROXY", "https_proxy")
+		} else if schema == "http" {
+			proxyEnv = getenvAny("HTTP_PROXY", "http_proxy")
+		}
 
-	// 3. Revisar NO_PROXY
-	noProxy := getenvAny("NO_PROXY", "no_proxy")
-	if hostInNoProxy(serverUrl, noProxy) {
-		return nil, nil
+		// 2. Si está vacío → no hay proxy
+		if proxyEnv == "" {
+			return nil, nil
+		}
+
+		// 3. Revisar NO_PROXY
+		noProxy := getenvAny("NO_PROXY", "no_proxy")
+		if hostInNoProxy(serverUrl, noProxy) {
+			return nil, nil
+		}
+		proxy = proxyEnv
+	} else {
+		proxy = proxyCMD
 	}
 
 	// 4. Parsear proxy
-	proxyURL, err := url.Parse(proxyEnv)
+	proxyURL, err := url.Parse(proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +246,7 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 
 	var addr = serverAddr + ":443"
 
-	proxy, _ := ProxyFromEnvCustom("https", serverAddr)
+	proxy, _ := ProxyFromEnvCustom("https", serverAddr, proxyURL)
 
 	if proxy.Host != "" {
 		// Proxy CONNECT
