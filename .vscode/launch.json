@@ -13,6 +13,14 @@
             "args": ["https://aso-dev-ar.work-02.platform.bbva.com"]
         },
         {
+            "name": "ssl-test proxy",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${fileDirname}/ssl-test.go",
+            "args": ["--proxy", "http://proxycfg:1082", "login.mypurecloud.com"]
+        },
+        {
             "name": "ssl-test cacert",
             "type": "go",
             "request": "launch",
@@ -20,14 +28,6 @@
             "program": "${fileDirname}/ssl-test.go",
             "args": ["https://aso-dev-ar.work-02.platform.bbva.com", 
                      "${fileDirname}/digicert-global-ca1.pem"]
-        },
-        {
-            "name": "ssl-server",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${fileDirname}/ssl-server.go",
-            "args": ["aso-dev-ar.work-02.platform.bbva.com:443"]
         }
     ]
 }
