@@ -13,7 +13,7 @@
             "args": ["https://aso-dev-ar.work-02.platform.bbva.com"]
         },
         {
-            "name": "ssl-test proxy",
+            "name": "ssl-test proxycfg",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -23,6 +23,14 @@
                 "HTTPS_PROXY": "ttp://pzenarg.zscalertwo.net:80"
             }
         },
+        {
+            "name": "ssl-test proxy zscaler",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${fileDirname}/ssl-test.go",
+            "args": ["--proxy", "http://pzenarg.zscalertwo.net:80", "login.mypurecloud.com"],
+        },        
         {
             "name": "ssl-test cacert",
             "type": "go",
