@@ -71,6 +71,18 @@ func formatHexWithColons(n *big.Int) string {
 	return result
 }
 
+func remainingDays(expirationDate time.Time) int {
+	now := time.Now()
+	diff := expirationDate.Sub(now)
+
+	// Calcular días (redondeando hacia arriba para contar el día actual si queda parcial)
+	days := int(diff.Hours() / 24)
+	if diff.Hours() > float64(days*24) {
+		days++
+	}
+	return days
+}
+
 func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
 	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Println("   ")
@@ -78,11 +90,10 @@ func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
 	fmt.Printf("  IsCA          %v\n", cert.IsCA)
 	fmt.Printf("  Subject       %s\n", cert.Subject)
 	fmt.Printf("  Issuer        %s\n", cert.Issuer)
-	fmt.Printf("  Serial#       %s \n", cert.SerialNumber)
-	fmt.Printf("                %s\n", formatHexWithColons(cert.SerialNumber))
+	fmt.Printf("  Serial#       %s\n", formatHexWithColons(cert.SerialNumber))
 	fmt.Printf("  NotBefore     %s\n", cert.NotBefore)
 	fmt.Printf("  NotAfter      %s\n", cert.NotAfter)
-	fmt.Printf("  Expired       %v\n", isValid)
+	fmt.Printf("  Expired       %v ==> %v days remaining\n", isValid, remainingDays(cert.NotAfter))
 	fmt.Printf("  DNSNames      %v\n", cert.DNSNames)
 	//fmt.Printf("EmailAddresses %v\n", cert.EmailAddresses)
 	//fmt.Printf("IPAddresses    %v\n", cert.IPAddresses)
@@ -105,8 +116,7 @@ func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serv
 	add(&pemData, fmt.Sprintf("# Subject     : %s \n", cert.Subject))
 	add(&pemData, fmt.Sprintf("# Issuer      : %s \n", cert.Issuer))
 	add(&pemData, fmt.Sprintf("# Vencimiento : %s \n", cert.NotAfter))
-	add(&pemData, fmt.Sprintf("# Serial#     : %s \n", cert.SerialNumber))
-	add(&pemData, fmt.Sprintf("#             : %s \n", formatHexWithColons(cert.SerialNumber)))
+	add(&pemData, fmt.Sprintf("# Serial#     : %s \n", formatHexWithColons(cert.SerialNumber)))
 
 	if !cert.IsCA {
 		add(&pemData, fmt.Sprintf("# DNSNames    : %v\n", cert.DNSNames))
@@ -239,7 +249,7 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 		conn, err = net.DialTimeout("tcp", addr, 5*time.Second)
 		if err != nil {
 			fmt.Printf("Error connecting direct >> %v \n\n", err)
-			fmt.Printf("Tip: Try using a proxy \n\n")
+			fmt.Printf("Tip: Try using a proxy like  proxycfg:1082 \n\n")
 			return nil
 		}
 	}
