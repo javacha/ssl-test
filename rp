@@ -1,0 +1,2 @@
+ ./ssl-test --proxy http://proxycfg:1082 login.mypurecloud.com
+
