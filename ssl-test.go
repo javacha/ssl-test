@@ -22,7 +22,7 @@ import (
 
 func help() {
 	fmt.Println("")
-	fmt.Println("ssl-test | List server certificates and test SSL connection. ")
+	fmt.Println("ssl-test v1.1 | List server certificates and test SSL connection. ")
 	fmt.Println("")
 	fmt.Println("Usage:")
 	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>]  <url>  \n\n")
@@ -84,17 +84,26 @@ func remainingDays(expirationDate time.Time) int {
 }
 
 func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
-	isValid := checkExpired(cert.NotBefore, cert.NotAfter)
+	CAIndicator := ""
+	isExpired := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Println("   ")
-	fmt.Printf("  certificate   %d\n", idx)
-	fmt.Printf("  IsCA          %v\n", cert.IsCA)
+	if cert.IsCA {
+		CAIndicator = "(CA)"
+	}
+	fmt.Printf("  certificate   %d  %v\n", idx, CAIndicator)
 	fmt.Printf("  Subject       %s\n", cert.Subject)
 	fmt.Printf("  Issuer        %s\n", cert.Issuer)
 	fmt.Printf("  Serial#       %s\n", formatHexWithColons(cert.SerialNumber))
 	fmt.Printf("  NotBefore     %s\n", cert.NotBefore)
 	fmt.Printf("  NotAfter      %s\n", cert.NotAfter)
-	fmt.Printf("  Expired       %v ==> %v days remaining\n", isValid, remainingDays(cert.NotAfter))
-	fmt.Printf("  DNSNames      %v\n", cert.DNSNames)
+	if isExpired {
+		fmt.Printf("  Valid         EXPIRED!!\n")
+	} else {
+		fmt.Printf("  Valid         OK  (%v days remaining)\n", remainingDays(cert.NotAfter))
+	}
+	if !cert.IsCA {
+		fmt.Printf("  DNSNames      %v\n", cert.DNSNames)
+	}
 	//fmt.Printf("EmailAddresses %v\n", cert.EmailAddresses)
 	//fmt.Printf("IPAddresses    %v\n", cert.IPAddresses)
 	//fmt.Printf("URIs           %v\n", cert.URIs)
@@ -115,7 +124,7 @@ func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serv
 	add(&pemData, fmt.Sprintf("# \n"))
 	add(&pemData, fmt.Sprintf("# Subject     : %s \n", cert.Subject))
 	add(&pemData, fmt.Sprintf("# Issuer      : %s \n", cert.Issuer))
-	add(&pemData, fmt.Sprintf("# Vencimiento : %s \n", cert.NotAfter))
+	add(&pemData, fmt.Sprintf("# Valid until : %s \n", cert.NotAfter))
 	add(&pemData, fmt.Sprintf("# Serial#     : %s \n", formatHexWithColons(cert.SerialNumber)))
 
 	if !cert.IsCA {
@@ -293,9 +302,9 @@ func getParams(args []string) (url, ts, proxy string) {
 
 	// Mostrar valores para verificar
 	fmt.Println("")
-	fmt.Println("URL               :", url)
-	fmt.Println("Proxy             :", proxy)
-	fmt.Println("Custom TLS bundle :", ts)
+	fmt.Println("  URL               :", url)
+	fmt.Println("  Proxy             :", proxy)
+	fmt.Println("  Custom TLS bundle :", ts)
 
 	return getServerURL(url), ts, proxy
 }
@@ -350,7 +359,7 @@ func getProxy(proxy string) *url.URL {
 	return parsedProxy
 }
 
-func sslConnect(url string, cacerts string, proxyURL string) {
+func sslConnect(url string, cacerts string, proxyURL string) bool {
 
 	caCertPool := createCertPool(cacerts)
 
@@ -397,25 +406,23 @@ func sslConnect(url string, cacerts string, proxyURL string) {
 		_, err := io.ReadAll(resp.Body) // Read the response body
 		if err != nil {
 			fmt.Println("Error reading response:", err)
-			return
 		}
-		fmt.Println("")
-
 	} else {
 		fmt.Print("  ")
 		color.Error.Println("Connection failed!")
 		fmt.Printf("  Message %s\n", removeURLFromError(err.Error()))
 	}
 	fmt.Println("")
-
+	return connectOK
 }
 
 func main() {
 
 	var (
-		url     string
-		cacerts string
-		proxy   string
+		url       string
+		cacerts   string
+		proxy     string
+		connectOK bool
 	)
 
 	url, cacerts, proxy = getParams(os.Args)
@@ -425,7 +432,13 @@ func main() {
 	if downloadOK {
 		listCAs(cacerts)
 
-		sslConnect(url, cacerts, proxy)
+		connectOK = sslConnect(url, cacerts, proxy)
+		if connectOK {
+			os.Exit(0)
+		}
 	}
+
+	// Si llegue aca, es porque hubo un fallo
+	os.Exit(1)
 
 }
