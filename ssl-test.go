@@ -14,28 +14,43 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gookit/color"
 )
 
+var debug bool
+
 func help() {
 	fmt.Println("")
 	fmt.Println("ssl-test v1.1 | List server certificates and test SSL connection. ")
 	fmt.Println("")
 	fmt.Println("Usage:")
-	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>]  <url>  \n\n")
+	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>] [--debug]  <url>  \n\n")
 	fmt.Println("")
 	fmt.Println("      proxy: optional proxy server")
 	fmt.Println("  custom-ts: optional custom CA truststore to test connection. If not informed, system truststore is used")
+	fmt.Println("      debug: optional debug mode")
 	fmt.Println("        url: server url")
 	fmt.Println("")
 	fmt.Println("")
 }
 
+// LogFunctionEntry logs the name of the function being executed
+func LogFunctionEntry() {
+	if debug {
+		pc, _, _, _ := runtime.Caller(1) // Obtiene el caller (la función que llamó)
+		funcName := runtime.FuncForPC(pc).Name()
+		log.Printf("Entering function: %s", funcName)
+	}
+}
+
 // obtiene el server name desde el argumento de commandLine
 func getServerURL(baseurl string) string {
+	LogFunctionEntry()
 	baseurl = strings.Replace(baseurl, "http://", "", -1)
 	baseurl = strings.Replace(baseurl, "https://", "", -1)
 
@@ -48,6 +63,7 @@ func getServerURL(baseurl string) string {
 }
 
 func checkExpired(from time.Time, until time.Time) bool {
+	LogFunctionEntry()
 	actualDate := time.Now()
 	expired := true
 	if actualDate.After(from) && actualDate.Before(until) {
@@ -57,6 +73,7 @@ func checkExpired(from time.Time, until time.Time) bool {
 }
 
 func formatHexWithColons(n *big.Int) string {
+	LogFunctionEntry()
 	// Convertimos el *big.Int a []byte (big-endian)
 	bytes := n.Bytes()
 
@@ -72,6 +89,7 @@ func formatHexWithColons(n *big.Int) string {
 }
 
 func remainingDays(expirationDate time.Time) int {
+	LogFunctionEntry()
 	now := time.Now()
 	diff := expirationDate.Sub(now)
 
@@ -84,6 +102,7 @@ func remainingDays(expirationDate time.Time) int {
 }
 
 func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
+	LogFunctionEntry()
 	CAIndicator := ""
 	isExpired := checkExpired(cert.NotBefore, cert.NotAfter)
 	fmt.Println("   ")
@@ -114,10 +133,12 @@ func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
 }
 
 func add(pemData *[]byte, buff string) {
+	LogFunctionEntry()
 	*pemData = append(*pemData, []byte(buff)...)
 }
 
 func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serverAddr string, certId int) []byte {
+	LogFunctionEntry()
 	if certId == 0 {
 		add(&pemData, fmt.Sprintf("# Host        : %s \n", serverAddr))
 	}
@@ -135,6 +156,7 @@ func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serv
 }
 
 func listServerCerts(serverAddr string, proxyURL string) bool {
+	LogFunctionEntry()
 	fmt.Println("")
 	fmt.Println("")
 	color.Blueln("  /////////////////////////////////////////////////")
@@ -169,6 +191,7 @@ func listServerCerts(serverAddr string, proxyURL string) bool {
 
 // Lista los certs del custom cacert
 func listCAs(certFile string) {
+	LogFunctionEntry()
 	if len(certFile) == 0 {
 		return
 	}
@@ -218,6 +241,7 @@ func listCAs(certFile string) {
 
 // Descarga los certs de un servidor
 func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
+	LogFunctionEntry()
 	var conn net.Conn
 	var err error
 
@@ -279,11 +303,11 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 	return tlsConn.ConnectionState().PeerCertificates
 }
 
-func getParams(args []string) (url, ts, proxy string) {
-
+func getParams(args []string) (url, ts, proxy string, debug bool) {
 	// Definición de flags opcionales
 	flag.String("proxy", "", "Proxy server (optional) ")
 	flag.String("custom-ts", "", "Path to custom TS bundle (optional)")
+	flag.String("debug", "", "Debug ON (optional) ")
 
 	// Parseo de flags
 	flag.Parse()
@@ -298,18 +322,21 @@ func getParams(args []string) (url, ts, proxy string) {
 	url = flag.Arg(0)
 	proxy = flag.Lookup("proxy").Value.String()
 	ts = flag.Lookup("custom-ts").Value.String()
+	debug, _ = strconv.ParseBool(flag.Lookup("debug").Value.String())
 	//customTLS = args[2]
 
 	// Mostrar valores para verificar
 	fmt.Println("")
 	fmt.Println("  URL               :", url)
 	fmt.Println("  Proxy             :", proxy)
+	fmt.Println("  Debug             :", debug)
 	fmt.Println("  Custom TLS bundle :", ts)
 
-	return getServerURL(url), ts, proxy
+	return getServerURL(url), ts, proxy, debug
 }
 
 func removeURLFromError(error string) string {
+	LogFunctionEntry()
 	where := strings.Index(error, ":")
 	error = error[where+1:]
 	where = strings.Index(error, ":")
@@ -318,6 +345,7 @@ func removeURLFromError(error string) string {
 
 // Lee el archivo custom cacerts
 func loadCacerts(certFile string) ([]byte, error) {
+	LogFunctionEntry()
 	// Load your cacerts file
 	cert, err := os.ReadFile(certFile)
 	if err != nil {
@@ -328,6 +356,7 @@ func loadCacerts(certFile string) ([]byte, error) {
 
 // Carga un CertPool a partir de lista de certs
 func createCertPool(certFile string) *x509.CertPool {
+	LogFunctionEntry()
 	if len(certFile) == 0 {
 		return nil
 	}
@@ -345,6 +374,7 @@ func createCertPool(certFile string) *x509.CertPool {
 }
 
 func getProxy(proxy string) *url.URL {
+	LogFunctionEntry()
 
 	// Si no tiene esquema, le agregamos http://
 	if !strings.Contains(proxy, "://") {
@@ -360,6 +390,7 @@ func getProxy(proxy string) *url.URL {
 }
 
 func sslConnect(url string, cacerts string, proxyURL string) bool {
+	LogFunctionEntry()
 
 	caCertPool := createCertPool(cacerts)
 
@@ -417,15 +448,16 @@ func sslConnect(url string, cacerts string, proxyURL string) bool {
 }
 
 func main() {
-
 	var (
 		url       string
 		cacerts   string
 		proxy     string
 		connectOK bool
 	)
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	url, cacerts, proxy = getParams(os.Args)
+	url, cacerts, proxy, debug = getParams(os.Args)
+	fmt.Print("", debug)
 
 	downloadOK := listServerCerts(url, proxy)
 
