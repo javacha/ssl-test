@@ -135,7 +135,7 @@ func remainingDays(expirationDate time.Time) int {
 	return days
 }
 
-func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
+func printCertificateInfoInScreen(cert *x509.Certificate, idx int) bool {
 	LogFunctionEntry()
 	CAIndicator := ""
 	isExpired := checkExpired(cert.NotBefore, cert.NotAfter)
@@ -164,6 +164,7 @@ func printCertificateInfoInScreen(cert *x509.Certificate, idx int) {
 	//fmt.Printf("Extensions     %v\n", cert.Extensions)
 
 	//fmt.Println(" -----------------------------")
+	return !isExpired
 }
 
 func add(pemData *[]byte, buff string) {
@@ -189,7 +190,7 @@ func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serv
 	return pemData
 }
 
-func listServerCerts(serverAddr string, proxyURL string) bool {
+func listServerCerts(serverAddr string, proxyURL string) (bool, bool) {
 	LogFunctionEntry()
 	fmt.Println("")
 	fmt.Println("")
@@ -202,6 +203,7 @@ func listServerCerts(serverAddr string, proxyURL string) bool {
 	fmt.Println("")
 
 	certs := getServerCerts(serverAddr, proxyURL)
+	isCertValid := true
 
 	if certs != nil {
 		pemOutputFileName := serverAddr + "-CERTS.pem"
@@ -209,7 +211,7 @@ func listServerCerts(serverAddr string, proxyURL string) bool {
 		certId := 0
 		pemData := []byte{}
 		for _, cert := range certs {
-			printCertificateInfoInScreen(cert, certId)
+			isCertValid = isCertValid && printCertificateInfoInScreen(cert, certId)
 			pemData = printCertificateInfoForPemFile(cert, pemData, serverAddr, certId)
 			pemData = append(pemData, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
 			certId++
@@ -219,9 +221,9 @@ func listServerCerts(serverAddr string, proxyURL string) bool {
 			log.Fatalf("failed to save PEM data to file: %v", err)
 		}
 		fmt.Println(" ")
-		return true
+		return true, isCertValid
 	}
-	return false
+	return false, false
 }
 
 // Lista los certs del custom cacert
@@ -459,9 +461,8 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	url, cacerts, proxy, debug = getParams(os.Args)
-	fmt.Print("", debug)
 
-	downloadOK := listServerCerts(url, proxy)
+	downloadOK, certsValid := listServerCerts(url, proxy)
 
 	if downloadOK && !doNoTest {
 		listCAs(cacerts)
@@ -469,10 +470,16 @@ func main() {
 		connectOK = sslConnect(url, cacerts, proxy)
 		if connectOK {
 			os.Exit(0)
+		} else {
+			os.Exit(1)
+
 		}
 	}
 
-	// Si llegue aca, es porque hubo un fallo
-	os.Exit(1)
+	if certsValid {
+		os.Exit(0)
+	} else {
+		os.Exit(1)
+	}
 
 }
