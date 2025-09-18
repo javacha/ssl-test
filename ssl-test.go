@@ -27,7 +27,6 @@ func getParams(args []string) (url, ts, proxy string, debug bool) {
 	// Definición de flags opcionales
 	flag.String("proxy", "", "Proxy server (optional) ")
 	flag.String("custom-ts", "", "Path to custom TS bundle (optional)")
-	//flag.String("debug", "", "Debug ON (optional) ")
 	flag.BoolVar(&debug, "debug", false, "Activate debug mode (optional)")
 	flag.BoolVar(&doNoTest, "no-test", false, "Do not test connection (optional)")
 
@@ -37,15 +36,11 @@ func getParams(args []string) (url, ts, proxy string, debug bool) {
 	// Validar y obtener el parámetro obligatorio (url)
 	if flag.NArg() < 1 {
 		help()
-		//fmt.Println("Error: falta el parámetro obligatorio 'url'")
-		//fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n")
 		os.Exit(1)
 	}
 	url = flag.Arg(0)
 	proxy = flag.Lookup("proxy").Value.String()
 	ts = flag.Lookup("custom-ts").Value.String()
-
-	//customTLS = args[2]
 
 	// Mostrar valores para verificar
 	fmt.Println("")
@@ -122,6 +117,7 @@ func formatHexWithColons(n *big.Int) string {
 	return result
 }
 
+// Calcula los días restantes hasta la expiración
 func remainingDays(expirationDate time.Time) int {
 	LogFunctionEntry()
 	now := time.Now()
@@ -135,6 +131,7 @@ func remainingDays(expirationDate time.Time) int {
 	return days
 }
 
+// Imprime la info del cert en pantalla
 func printCertificateInfoInScreen(cert *x509.Certificate, idx int) bool {
 	LogFunctionEntry()
 	CAIndicator := ""
@@ -167,11 +164,13 @@ func printCertificateInfoInScreen(cert *x509.Certificate, idx int) bool {
 	return !isExpired
 }
 
+// Agrega una línea al pemData
 func add(pemData *[]byte, buff string) {
 	LogFunctionEntry()
 	*pemData = append(*pemData, []byte(buff)...)
 }
 
+// Arma la info del cert en el pem file
 func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serverAddr string, certId int) []byte {
 	LogFunctionEntry()
 	if certId == 0 {
@@ -190,6 +189,7 @@ func printCertificateInfoForPemFile(cert *x509.Certificate, pemData []byte, serv
 	return pemData
 }
 
+// Dada una lista de certificados, imprime la info en pantalla y la guarda en un pem file
 func listServerCerts(serverAddr string, proxyURL string) (bool, bool) {
 	LogFunctionEntry()
 	fmt.Println("")
@@ -340,6 +340,7 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 	return tlsConn.ConnectionState().PeerCertificates
 }
 
+// Elimina la URL del mensaje de error
 func removeURLFromError(error string) string {
 	LogFunctionEntry()
 	where := strings.Index(error, ":")
@@ -378,6 +379,7 @@ func createCertPool(certFile string) *x509.CertPool {
 	}
 }
 
+// Parsea la URL del proxy
 func getProxy(proxy string) *url.URL {
 	LogFunctionEntry()
 
@@ -394,6 +396,7 @@ func getProxy(proxy string) *url.URL {
 	return parsedProxy
 }
 
+// Testea la conexión SSL al servidor
 func sslConnect(url string, cacerts string, proxyURL string) bool {
 	LogFunctionEntry()
 
