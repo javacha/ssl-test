@@ -15,14 +15,47 @@ import (
 	"net/url"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gookit/color"
 )
 
-var debug bool
+var debug, doNoTest bool
+
+func getParams(args []string) (url, ts, proxy string, debug bool) {
+	// Definición de flags opcionales
+	flag.String("proxy", "", "Proxy server (optional) ")
+	flag.String("custom-ts", "", "Path to custom TS bundle (optional)")
+	//flag.String("debug", "", "Debug ON (optional) ")
+	flag.BoolVar(&debug, "debug", false, "Activate debug mode (optional)")
+	flag.BoolVar(&doNoTest, "no-test", false, "Do not test connection (optional)")
+
+	// Parseo de flags
+	flag.Parse()
+
+	// Validar y obtener el parámetro obligatorio (url)
+	if flag.NArg() < 1 {
+		help()
+		//fmt.Println("Error: falta el parámetro obligatorio 'url'")
+		//fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n")
+		os.Exit(1)
+	}
+	url = flag.Arg(0)
+	proxy = flag.Lookup("proxy").Value.String()
+	ts = flag.Lookup("custom-ts").Value.String()
+
+	//customTLS = args[2]
+
+	// Mostrar valores para verificar
+	fmt.Println("")
+	fmt.Println("  URL               :", url)
+	fmt.Println("  Proxy             :", proxy)
+	fmt.Println("  Debug             :", debug)
+	fmt.Println("  Custom TLS bundle :", ts)
+
+	return getServerURL(url), ts, proxy, debug
+}
 
 func help() {
 	fmt.Println("")
@@ -34,6 +67,7 @@ func help() {
 	fmt.Println("      proxy: optional proxy server")
 	fmt.Println("  custom-ts: optional custom CA truststore to test connection. If not informed, system truststore is used")
 	fmt.Println("      debug: optional debug mode")
+	fmt.Println("    no-test: optional do not test connection")
 	fmt.Println("        url: server url")
 	fmt.Println("")
 	fmt.Println("")
@@ -184,6 +218,7 @@ func listServerCerts(serverAddr string, proxyURL string) bool {
 		if err != nil {
 			log.Fatalf("failed to save PEM data to file: %v", err)
 		}
+		fmt.Println(" ")
 		return true
 	}
 	return false
@@ -303,38 +338,6 @@ func getServerCerts(serverAddr string, proxyURL string) []*x509.Certificate {
 	return tlsConn.ConnectionState().PeerCertificates
 }
 
-func getParams(args []string) (url, ts, proxy string, debug bool) {
-	// Definición de flags opcionales
-	flag.String("proxy", "", "Proxy server (optional) ")
-	flag.String("custom-ts", "", "Path to custom TS bundle (optional)")
-	flag.String("debug", "", "Debug ON (optional) ")
-
-	// Parseo de flags
-	flag.Parse()
-
-	// Validar y obtener el parámetro obligatorio (url)
-	if flag.NArg() < 1 {
-		help()
-		//fmt.Println("Error: falta el parámetro obligatorio 'url'")
-		//fmt.Printf("Uso: ssl-test  [--proxy PROXY] [--custom-ts RUTA]  <url>  \n\n")
-		os.Exit(1)
-	}
-	url = flag.Arg(0)
-	proxy = flag.Lookup("proxy").Value.String()
-	ts = flag.Lookup("custom-ts").Value.String()
-	debug, _ = strconv.ParseBool(flag.Lookup("debug").Value.String())
-	//customTLS = args[2]
-
-	// Mostrar valores para verificar
-	fmt.Println("")
-	fmt.Println("  URL               :", url)
-	fmt.Println("  Proxy             :", proxy)
-	fmt.Println("  Debug             :", debug)
-	fmt.Println("  Custom TLS bundle :", ts)
-
-	return getServerURL(url), ts, proxy, debug
-}
-
 func removeURLFromError(error string) string {
 	LogFunctionEntry()
 	where := strings.Index(error, ":")
@@ -409,7 +412,6 @@ func sslConnect(url string, cacerts string, proxyURL string) bool {
 	//Proxy: http.ProxyURL(proxyURL),
 
 	fmt.Println(" ")
-	fmt.Println(" ")
 	color.Blueln("  /////////////////////////////////////////////////")
 	color.Bluef("  ///         ")
 	color.White.Printf("Testing SSL connection")
@@ -461,7 +463,7 @@ func main() {
 
 	downloadOK := listServerCerts(url, proxy)
 
-	if downloadOK {
+	if downloadOK && !doNoTest {
 		listCAs(cacerts)
 
 		connectOK = sslConnect(url, cacerts, proxy)
