@@ -59,10 +59,10 @@ func getParams(args []string) (url, ts, proxy string, debug bool) {
 
 func help() {
 	fmt.Println("")
-	fmt.Println("ssl-test v1.1 | List server certificates and test SSL connection. ")
+	fmt.Println("ssl-test v1.2 | List server certificates and test SSL connection. ")
 	fmt.Println("")
 	fmt.Println("Usage:")
-	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>] [--debug]  <url>  \n\n")
+	fmt.Printf("   ssl-test  [--proxy http://<server>:<port>] [--custom-ts <tls-bundle.pem>] [--debug] [--no-test]  <url>  \n\n")
 	fmt.Println("")
 	fmt.Println("      proxy: optional proxy server")
 	fmt.Println("  custom-ts: optional custom CA truststore to test connection. If not informed, system truststore is used")
